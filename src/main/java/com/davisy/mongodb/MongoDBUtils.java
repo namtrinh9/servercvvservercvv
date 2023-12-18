@@ -278,6 +278,43 @@ public class MongoDBUtils {
 			return 0;
 		}
 	}
+	
+	
+	// update status cho notification
+		public <T> long updateStatusNotification(Class<T> documentClass, String collectionName, Boolean statusUpdate, String id) {
+		    MongoDatabase database = client.getDatabase(dbName);
+		    MongoCollection<T> collection = database.getCollection(collectionName, documentClass);
+
+		    // Filter for documents where the status is false
+//		    Document filter = new Document("status", !statusUpdate);
+		 // Filter for documents where the status is false and id is equal to the provided id
+		    Document filter = new Document("status", !statusUpdate)
+		                          .append("idUserReceive", id);
+
+		    // Update fields and values, setting status to true
+		    /*
+		     * upsert(false) (mặc định):
+
+				Khi upsert được đặt thành false, nghĩa là bạn không muốn thực hiện việc thêm mới (insert) bản ghi nếu không tìm thấy bản ghi nào khớp với điều kiện tìm kiếm.
+				Nếu không tìm thấy bản ghi nào khớp với điều kiện, thì không có thay đổi hoặc thêm mới sẽ xảy ra. Có nghĩa là nó chỉ cập nhật các bản ghi đã tồn tại.
+				upsert(true):
+				
+				Khi upsert được đặt thành true, nếu không tìm thấy bản ghi nào khớp với điều kiện tìm kiếm, MongoDB sẽ thêm mới một bản ghi dựa trên điều kiện tìm kiếm và các thông tin cập nhật bạn cung cấp.
+				Nếu không có bản ghi nào khớp, MongoDB sẽ chèn một bản ghi mới thay vì chỉ cập nhật các bản ghi đã tồn tại.
+		     */
+		    Document updateDocument = new Document("$set", new Document("status", statusUpdate));
+
+		    // Update all documents that match the filter
+		    UpdateOptions options = new UpdateOptions().upsert(false);
+		    
+		    try {
+				UpdateResult updateResult = collection.updateMany(filter, updateDocument, options);
+				return updateResult.getModifiedCount();
+			} catch (MongoException me) {
+				return 0;
+			}
+		}
+	
 
 	// Cập nhật theo trường "_id" (_id là khóa chính và tự tạo)
 	public <T> T updateBy_Id(T document, Class<T> documentClass, String collectionName, ObjectId _id, T newDocument) {
@@ -335,6 +372,14 @@ public class MongoDBUtils {
 		}
 		return -1;
 	}
+	
+	// Lấy độ dài 1 collection
+		public long lengthCollection(String collectionName) {
+			MongoDatabase database = client.getDatabase(dbName);
+			MongoCollection<Document> collection = database.getCollection(collectionName);
+			long collectionSize = collection.estimatedDocumentCount();
+			return collectionSize;
+		}
 
 	// tìm theo trường "post_reported_id"
 //	public <T> T findByPostReportedId(T document, Class<T> documentClass, String collectionName, int post_reported_id) {

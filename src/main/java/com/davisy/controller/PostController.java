@@ -194,7 +194,7 @@ public class PostController {
 	@Autowired
 	SimpMessagingTemplate simpMessagingTemplate;
 	@PostMapping("/v1/user/upload/post")
-	public ResponseEntity<PostEntity> createPost(HttpServletRequest request,
+	public ResponseEntity<List<PostEntity>> createPost(HttpServletRequest request,
 			@RequestBody UploadPostEntity uploadPostEntity) {
 		try {
 			String email = jwtTokenUtil.getEmailFromHeader(request);
@@ -237,7 +237,7 @@ public class PostController {
 			List<Object[]> postProfile = postService.findAllPost(id, 1);
 			List<Object[]> postShare = postService.findAllPost(id, 1);
 
-			return ResponseEntity.ok().body(postEntity(postProfile, postShare).get(0));
+			return ResponseEntity.ok().body(postEntity(postProfile, postShare));
 		} catch (Exception e) {
 			System.out.println("error: " + e);
 			return ResponseEntity.badRequest().build();
@@ -356,6 +356,31 @@ public class PostController {
 			post.setProduct(uploadPostEntity.getProduct());
 			postService.update(post);
 			System.out.println("success update");
+//			List<PostImages> listPostImg = postImagesService.getListPostImagesByPostID(idPost);
+//			if (listImages.size() > listPostImg.size()) {
+//				int i = 0;
+//				for (PostImages pi : listPostImg) {
+//					pi.setLink_image(listImages.get(i));
+//					postImagesService.update(pi);
+//					i++;
+//				}
+//				for (int k = i; k < listImages.size(); k++) {
+//					PostImages postImages = new PostImages();
+//					postImages.setPost(post);
+//					postImages.setLink_image(listImages.get(k));
+//					postImagesService.create(postImages);
+//				}
+//			} else {
+//				int i = 0;
+//				for (PostImages pi : listPostImg) {
+//					if (!listImages.isEmpty())
+//						pi.setLink_image(listImages.get(i));
+//					else
+//						pi.setLink_image("");
+//					postImagesService.update(pi);
+//					i++;
+//				}
+//			}
 			List<Object[]> postProfile = postService.getPostProfile(id, id, 1);
 			List<Object[]> postShare = postService.getPostProfileShare(id, id);
 			return ResponseEntity.ok().body(postEntity(postProfile, postShare));

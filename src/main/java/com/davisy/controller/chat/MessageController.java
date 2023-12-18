@@ -64,51 +64,50 @@ public class MessageController {
 	public void sendMessage(@DestinationVariable int to, MessageModel message) {
 		int from = message.getFromLogin();
 		boolean check = participantsService.checkBlock(to, message.getFromLogin());
-		System.out.println("cheack: "+check);
-		System.out.println("message.getFromLogin(): "+message.getFromLogin());
-		if (!check) {
+		if (check == false) {
 			simpMessagingTemplate.convertAndSend("/topic/block/messages/" + message.getFromLogin(), false);
-		} else {
+			return;
+		}
 
-			User user = userService.findById(message.getFromLogin());
-			User toUser = userService.findById(to);
-			Chats chats = chatsService.findChatNames(user.getUsername(), toUser.getUsername());
-			List<String> images = new ArrayList<>();
-			Messages messages = new Messages();
-
+		User user = userService.findById(message.getFromLogin());
+		User toUser = userService.findById(to);
+		Chats chats = chatsService.findChatNames(user.getUsername(), toUser.getUsername());
+		List<String> images = new ArrayList<>();
+		Messages messages = new Messages();
+		String rarMess="";
+		if(!message.getMessage().equals("")) {
 			// mã hóa nội dung tin nhắn
 
 			// Step1. Get SecretKey from u1, u2
 			int key = DiffieHellman.genSecretKey(from, to);
 
 			// Step2. encode message
-			String rarMess = AES.encrypt(message.getMessage(), key);
-
-			messages.setContent(rarMess);
-			messages.setUser(user);
-			messages.setChats(chats);
-			messages.setSend_Status(false);
-			if (!"".equals(message.getTypeMessage()))
-				messages.setType(message.getTypeMessage());
-			messagesService.create(messages);
-			if (message.getLinkImages().length > 0) {
-				for (String s : message.getLinkImages()) {
-					MessageImages image = new MessageImages();
-					image.setMessages(messages);
-					image.setLink_image(s);
-					images.add(s);
-					messageImagesService.create(image);
-				}
+			 rarMess = AES.encrypt(message.getMessage(), key);
+		}
+		messages.setContent(rarMess);
+		messages.setUser(user);
+		messages.setChats(chats);
+		messages.setSend_Status(false);
+		if (!"".equals(message.getTypeMessage()))
+			messages.setType(message.getTypeMessage());
+		messagesService.create(messages);
+		if (message.getLinkImages().length > 0) {
+			for (String s : message.getLinkImages()) {
+				MessageImages image = new MessageImages();
+				image.setMessages(messages);
+				image.setLink_image(s);
+				images.add(s);
+				messageImagesService.create(image);
 			}
-			Object[] messageOb = messagesService.findByIdMessage(message.getFromLogin(), to, messages.getId());
-			MessagesEntity entity = new MessagesEntity();
-			entity = entity(messageOb);
-			simpMessagingTemplate.convertAndSend("/topic/status/messages/" + message.getFromLogin(), entity);
-			boolean isExists = UserChatStorage.getInstance().getUsers().containsKey(to);
-			if (isExists) {
-				simpMessagingTemplate.convertAndSend("/topic/messages/" + to, new Object[] { entity, 0 });
+		}
+		Object[] messageOb = messagesService.findByIdMessage(message.getFromLogin(), to, messages.getId());
+		MessagesEntity entity = new MessagesEntity();
+		entity = entity(messageOb, to);
+		simpMessagingTemplate.convertAndSend("/topic/status/messages/" + message.getFromLogin(), entity);
+		boolean isExists = UserChatStorage.getInstance().getUsers().containsKey(to);
+		if (isExists) {
+			simpMessagingTemplate.convertAndSend("/topic/messages/" + to, new Object[] { entity, 0 });
 
-			}
 		}
 	}
 
@@ -116,46 +115,6 @@ public class MessageController {
 	public ResponseEntity<Boolean> block(@RequestParam("from") int from, @RequestParam("to") int to) {
 		boolean check = participantsService.checkBlock(from, to);
 		return ResponseEntity.ok().body(check);
-	}
-
-	public MessagesEntity listEntity(Object[] l) {
-		MessagesEntity entity = new MessagesEntity();
-		entity.setId(Integer.valueOf(l[0].toString()));
-		entity.setContent(l[1] + "");
-		entity.setSend_time(l[2] + "");
-		entity.setUser_id(Integer.valueOf(l[3].toString()));
-		entity.setAvatar(l[4] + "");
-		entity.setChat_parcipants_status(Boolean.valueOf(l[5].toString()));
-		if (l[6] != null)
-			entity.setDay(l[6] + "");
-		else
-			entity.setDay(null);
-		entity.setType(l[7] + "");
-		entity.setRecall(Boolean.valueOf(l[8].toString()));
-		if (!entity.getType().equalsIgnoreCase("text") && !entity.isRecall()) {
-			entity.setImages(messageImagesService.findAllImagesMessage(entity.getId()));
-		}
-		return entity;
-	}
-
-	public MessagesEntity entity(Object[] o) {
-		MessagesEntity entity = new MessagesEntity();
-		entity.setId(Integer.valueOf(((Object[]) o[0])[0].toString()));
-		entity.setContent(((Object[]) o[0])[1] + "");
-		entity.setSend_time(((Object[]) o[0])[2] + "");
-		entity.setUser_id(Integer.valueOf(((Object[]) o[0])[3].toString()));
-		entity.setAvatar(((Object[]) o[0])[4] + "");
-		entity.setChat_parcipants_status(Boolean.valueOf(((Object[]) o[0])[5].toString()));
-		if (((Object[]) o[0])[6] != null)
-			entity.setDay(((Object[]) o[0])[6] + "");
-		else
-			entity.setDay(null);
-		entity.setType(((Object[]) o[0])[7] + "");
-		entity.setRecall(Boolean.valueOf(((Object[]) o[0])[8].toString()));
-		if (!entity.getType().equalsIgnoreCase("text") && !entity.isRecall()) {
-			entity.setImages(messageImagesService.findAllImagesMessage(entity.getId()));
-		}
-		return entity;
 	}
 
 //	@PostMapping("/v1/user/chat/load/messages")
@@ -176,6 +135,25 @@ public class MessageController {
 //			return ResponseEntity.badRequest().build();
 //		}
 //	}
+
+	@PostMapping("/v1/user/video-call/{fromUserId}/{toUserId}")
+	public void videoCall(@PathVariable("fromUserId") int fromUserId, @PathVariable("toUserId") int toUserId) {
+		User  user = userService.findById(fromUserId);
+		String avatar =user.getAvatar();
+		Object[] o = new Object[] { fromUserId, toUserId, avatar };
+		simpMessagingTemplate.convertAndSend("/topic/notify/video-call/" + toUserId, o);
+		
+	}
+
+	@MessageMapping("/refuse/video-call/{id}/{type}")
+	public void refuse_video_call(@DestinationVariable int id,@DestinationVariable String type) {
+		simpMessagingTemplate.convertAndSend("/topic/notify/refuse/video-call/" + id, type);
+	}
+
+	@MessageMapping("/recieve/video-call/{id}")
+	public void recieve_video_call(@DestinationVariable int id) {
+		simpMessagingTemplate.convertAndSend("/topic/notify/recieve/video-call/" + id, "recieve");
+	}
 
 	@PostMapping("/v1/user/chat/load/messages")
 	public ResponseEntity<List<MessagesEntity>> loadMessages(HttpServletRequest request, @RequestParam("to") int to,
